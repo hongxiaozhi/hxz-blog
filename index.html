@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>h_xiaozhi 个人博客</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>h_xiaozhi 的个人博客</h1>
+        <p>记录笔记、感受与成长</p>
+      </header>
+
+      <section class="post-form">
+        <h2>发布新笔记</h2>
+        <input id="title" placeholder="标题" />
+        <textarea id="content" rows="6" placeholder="内容"></textarea>
+        <button id="publish">发布</button>
+      </section>
+
+      <section class="post-list" id="postList">
+        <h2>我的笔记</h2>
+        <div id="posts"></div>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

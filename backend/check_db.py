@@ -1,0 +1,10 @@
+import sqlite3
+conn = sqlite3.connect('blog.db')
+cursor = conn.cursor()
+cursor.execute('SELECT name FROM sqlite_master WHERE type="table"')
+tables = cursor.fetchall()
+print('Tables:', tables)
+cursor.execute('SELECT sql FROM sqlite_master WHERE name="posts"')
+schema = cursor.fetchone()
+print('Posts schema:', schema)
+conn.close()
