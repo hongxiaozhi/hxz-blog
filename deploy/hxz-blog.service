@@ -4,8 +4,8 @@ Documentation=https://github.com/kiosk/hxz-blog
 After=network.target
 
 [Service]
-User=ubuntu
-Group=ubuntu
+User=__APP_USER__
+Group=__APP_GROUP__
 WorkingDirectory=/opt/hxz-blog/backend
 Environment="PATH=/opt/hxz-blog/backend/venv/bin"
 
