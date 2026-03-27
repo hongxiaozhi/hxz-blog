@@ -1,4 +1,6 @@
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+const API_BASE = (location.port === '' || location.port === '80' || location.port === '443')
+  ? `${location.protocol}//${location.hostname}/api`
+  : `${location.protocol}//${location.hostname}:5000/api`;
 
 const app = Vue.createApp({
   template: `

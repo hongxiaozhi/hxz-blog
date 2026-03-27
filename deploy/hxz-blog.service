@@ -1,0 +1,25 @@
+[Unit]
+Description=XiaozhiBlog Gunicorn
+Documentation=https://github.com/kiosk/hxz-blog
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/hxz-blog/backend
+Environment="PATH=/opt/hxz-blog/backend/venv/bin"
+
+# 日志目录由 setup.sh 创建
+ExecStart=/opt/hxz-blog/backend/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:8001 \
+    --timeout 60 \
+    --access-logfile /var/log/hxz-blog/access.log \
+    --error-logfile /var/log/hxz-blog/error.log \
+    app:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
