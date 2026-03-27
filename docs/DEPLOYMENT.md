@@ -157,22 +157,16 @@ nohup python3 -m http.server 8080 > frontend.log 2>&1 &
 
 ### 第八步：前端配置调整
 
-编辑 `frontend/app.js`，确保 API 基 URL 指向你的服务器 IP：
+默认无需修改 `frontend/app.js`，`API_BASE` 会自动识别当前主机并请求 `5000` 端口（本地与云服务器都可直接使用）：
 
 ```bash
 cd /opt/XiaozhiBlog/frontend
 
-# 编辑 app.js，找到这一行：
-# const API_BASE = "http://localhost:5000/api";
+# 可选：如果你需要强制指定后端地址，再手工修改 app.js 中 API_BASE
+nano app.js  # 找到 API_BASE 定义后修改并保存（Ctrl+X, Y, Enter）
 
-# 改为：
+# 可选示例（强制指定固定地址）
 # const API_BASE = "http://<your-aliyun-ip>:5000/api";
-
-# 方式 1：用 sed 替换
-sed -i 's|const API_BASE = "http://localhost:5000/api"|const API_BASE = "http://<your-aliyun-ip>:5000/api"|g' app.js
-
-# 方式 2：手工编辑
-nano app.js  # 找到第 1 行，改后保存（Ctrl+X, Y, Enter）
 ```
 
 ---
