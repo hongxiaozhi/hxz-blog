@@ -26,9 +26,10 @@ echo ">>> [1/8] 安装依赖（nginx, gunicorn, certbot）"
 apt update -qq
 apt install -y nginx python3-certbot-nginx
 
-echo ">>> [2/8] 安装 gunicorn 到虚拟环境"
+echo ">>> [2/8] 安装 Python 依赖（含 gunicorn）"
 cd "$PROJECT_DIR/backend"
 source venv/bin/activate
+pip install --quiet -r requirements.txt
 pip install --quiet gunicorn
 deactivate
 
@@ -50,8 +51,33 @@ systemctl reload nginx
 
 echo ">>> [6/8] 安装 Systemd 服务"
 cp "$PROJECT_DIR/deploy/hxz-blog.service" /etc/systemd/system/$SERVICE_NAME.service
+
+# 替换用户占位符
 sed -i "s|__APP_USER__|$APP_USER|g; s|__APP_GROUP__|$APP_GROUP|g" \
     /etc/systemd/system/$SERVICE_NAME.service
+
+# 生成并注入安全凭证
+JWT_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+echo -n "请设置博客管理员登录密码: "
+read -rs RAW_PASS
+echo ""
+source "$PROJECT_DIR/backend/venv/bin/activate"
+PW_HASH=$(python3 -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "$RAW_PASS")
+deactivate
+unset RAW_PASS
+
+# 用 Python 安全替换（避免密码哈希中的特殊字符影响 sed）
+JWT_KEY="$JWT_KEY" PW_HASH="$PW_HASH" python3 - <<'PYEOF'
+import os
+svc = "/etc/systemd/system/hxz-blog.service"
+with open(svc) as f:
+    content = f.read()
+content = content.replace("__JWT_SECRET_KEY__", os.environ["JWT_KEY"])
+content = content.replace("__ADMIN_PASSWORD_HASH__", os.environ["PW_HASH"])
+with open(svc, "w") as f:
+    f.write(content)
+PYEOF
+
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME

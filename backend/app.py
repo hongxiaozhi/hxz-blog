@@ -1,4 +1,5 @@
 import os
+import bcrypt
 from datetime import timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -13,7 +14,7 @@ DB_FILE = os.path.join(BASE_DIR, "blog.db")
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_FILE}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "change-this-secret-before-production"
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-insecure-key-do-not-use-in-production")
 # Development-friendly token lifetime to reduce re-login interruptions.
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 
@@ -22,17 +23,20 @@ jwt = JWTManager(app)
 
 db.init_app(app)
 
-VALID_USER = {
-    "username": "h_xiaozhi",
-    "password": "123456",
-}
+# 管理员用户名，默认 h_xiaozhi，可通过环境变量覆盖
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "h_xiaozhi")
+# 密码哈希由 setup.sh 生成后注入环境变量
+# 本地生成命令: python3 -c "import bcrypt; print(bcrypt.hashpw(b'your_password', bcrypt.gensalt()).decode())"
+ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", "").encode()
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-    username = data.get("username")
-    password = data.get("password")
-    if username == VALID_USER["username"] and password == VALID_USER["password"]:
+    username = data.get("username", "")
+    password = data.get("password", "")
+    if not ADMIN_PASSWORD_HASH:
+        return jsonify({"msg": "服务器未配置管理员密码，请联系管理员"}), 500
+    if username == ADMIN_USERNAME and bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH):
         token = create_access_token(identity=username)
         return jsonify({"access_token": token, "username": username})
     return jsonify({"msg": "用户名或密码错误"}), 401
@@ -81,6 +85,14 @@ def get_comments(post_id):
     comments = [c.to_dict() for c in Comment.query.filter_by(post_id=post.id).order_by(Comment.created_at.desc()).all()]
     return jsonify(comments)
 
+
+@app.route("/api/posts/<int:post_id>/comments/<int:comment_id>", methods=["DELETE"])
+@jwt_required()
+def delete_comment(post_id, comment_id):
+    comment = Comment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
+    db.session.delete(comment)
+    db.session.commit()
+    return jsonify({"msg": "删除成功"})
 
 @app.route("/api/posts/<int:post_id>/comments", methods=["POST"])
 def create_comment(post_id):

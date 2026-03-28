@@ -8,6 +8,8 @@ User=__APP_USER__
 Group=__APP_GROUP__
 WorkingDirectory=/opt/hxz-blog/backend
 Environment="PATH=/opt/hxz-blog/backend/venv/bin"
+Environment="JWT_SECRET_KEY=__JWT_SECRET_KEY__"
+Environment="ADMIN_PASSWORD_HASH=__ADMIN_PASSWORD_HASH__"
 
 # 日志目录由 setup.sh 创建
 ExecStart=/opt/hxz-blog/backend/venv/bin/gunicorn \

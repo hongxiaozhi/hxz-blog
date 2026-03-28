@@ -24,7 +24,6 @@ const app = Vue.createApp({
               <div class="action-row" style="margin-top:10px">
                 <button @click="loginFromPanel">登录</button>
               </div>
-              <p class="label compact-note">默认：h_xiaozhi / 123456</p>
             </div>
             <div v-else>
               <div class="popover-section">
@@ -131,7 +130,10 @@ const app = Vue.createApp({
           <h3>评论</h3>
           <div class="comment-box" v-if="currentPostComments.length === 0">暂无评论，快来第一个发表吧。</div>
           <div class="comment-box" v-for="c in currentPostComments" :key="c.id">
-            <div><strong>{{ c.author }}</strong> <span class="label">{{ new Date(c.created_at).toLocaleString() }}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><strong>{{ c.author }}</strong> <span class="label">{{ new Date(c.created_at).toLocaleString() }}</span></div>
+              <button v-if="isLoggedIn" class="btn-danger btn-small" @click="deleteComment(c)">删除</button>
+            </div>
             <div>{{ c.content }}</div>
           </div>
           <div class="comment-editor">
@@ -162,7 +164,7 @@ const app = Vue.createApp({
     return {
       token: localStorage.getItem("hx_token") || "",
       username: localStorage.getItem("hx_user") || "",
-      loginForm: { username: "h_xiaozhi", password: "123456" },
+      loginForm: { username: "", password: "" },
       posts: [],
       activePost: null,
       form: { id: null, title: "", content: "", tags: "", category: "" },
@@ -385,6 +387,16 @@ const app = Vue.createApp({
         this.currentPostComments = await this.request({ url: `/posts/${postId}/comments`, method: "GET" });
       } catch (error) {
         this.currentPostComments = [];
+      }
+    },
+    async deleteComment(comment) {
+      if (!this.activePost) return;
+      if (!confirm('确定删除这条评论吗？')) return;
+      try {
+        await this.request({ url: `/posts/${this.activePost.id}/comments/${comment.id}`, method: "DELETE" });
+        this.currentPostComments = this.currentPostComments.filter(c => c.id !== comment.id);
+      } catch (error) {
+        this.setError(error.response?.data?.msg || "删除评论失败");
       }
     },
     async submitComment() {
