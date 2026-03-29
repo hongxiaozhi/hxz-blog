@@ -103,7 +103,7 @@ def get_post(post_id):
     post.view_count = post.view_count + 1
     db.session.commit()
     data = post.to_dict()
-    data["html"] = markdown(data["content"], extensions=["fenced_code", "codehilite"])
+    data["html"] = markdown(data["content"], extensions=["fenced_code"])
     return jsonify(data)
 
 

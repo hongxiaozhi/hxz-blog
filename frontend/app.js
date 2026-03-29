@@ -87,7 +87,10 @@ const app = Vue.createApp({
         </div>
 
         <div v-if="isLoadingPosts" class="empty-state">正在加载笔记...</div>
-        <div v-else-if="posts.length === 0" class="empty-state">没有匹配结果，调整条件后重新搜索。</div>
+        <div v-else-if="posts.length === 0" class="empty-state">
+          <div>没有匹配结果</div>
+          <button class="btn-secondary btn-small" style="margin-top:10px" @click="clearSearch">重置筛选条件</button>
+        </div>
 
         <div class="post-list" v-else>
           <div class="post-card" v-for="post in posts" :key="post.id" :class="{pinned: post.is_pinned}">
@@ -110,9 +113,9 @@ const app = Vue.createApp({
           </div>
         </div>
 
-        <div class="pagination">
-          <button :disabled="postsPagination.page <= 1" @click="changePage(postsPagination.page - 1)">上一页</button>
-          <button :disabled="postsPagination.page >= totalPagesDisplay" @click="changePage(postsPagination.page + 1)">下一页</button>
+        <div class="load-more-row" v-if="!isLoadingPosts && posts.length > 0">
+          <button v-if="hasMore" class="btn-secondary" @click="loadMore" :disabled="isLoadingMore">{{ isLoadingMore ? '加载中...' : '加载更多' }}</button>
+          <span class="label">共 {{ postsPagination.total }} 篇，已显示 {{ posts.length }} 篇</span>
         </div>
       </div>
 
@@ -136,9 +139,15 @@ const app = Vue.createApp({
             <div>{{ c.content }}</div>
           </div>
           <div class="comment-editor">
-            <input v-model="newComment.author" placeholder="昵称(可不填)" />
-            <textarea v-model="newComment.content" rows="3" placeholder="写评论..."></textarea>
-            <button @click="submitComment">发表评论</button>
+            <div v-if="!commentEditorExpanded" class="comment-editor-collapsed" @click="commentEditorExpanded = true">写下你的想法...</div>
+            <template v-else>
+              <input v-model="newComment.author" placeholder="昵称(可不填)" />
+              <textarea v-model="newComment.content" rows="3" placeholder="写评论..."></textarea>
+              <div class="action-row" style="margin-top:8px">
+                <button @click="submitComment" :disabled="isSubmittingComment">{{ isSubmittingComment ? '提交中...' : '发表评论' }}</button>
+                <button class="btn-secondary btn-small" @click="commentEditorExpanded = false">取消</button>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -178,6 +187,11 @@ const app = Vue.createApp({
       postsPagination: { page: 1, per_page: 5, total: 0, pages: 1 },
       theme: localStorage.getItem("hx_theme") || "light",
       isLoadingPosts: false,
+      currentPage: 1,
+      hasMore: false,
+      isLoadingMore: false,
+      commentEditorExpanded: false,
+      isSubmittingComment: false,
       currentPostComments: [],
       newComment: { author: "", content: "" },
       showUserPanel: false,
@@ -195,6 +209,18 @@ const app = Vue.createApp({
     },
     userInitial() {
       return this.isLoggedIn ? (this.username || '?')[0].toUpperCase() : '?';
+    },
+  },
+  watch: {
+    activePost(newVal) {
+      if (newVal && typeof hljs !== 'undefined') {
+        this.$nextTick(() => hljs.highlightAll());
+      }
+    },
+    markdownHtml() {
+      if (this.mode === 'edit' && typeof hljs !== 'undefined') {
+        this.$nextTick(() => hljs.highlightAll());
+      }
     },
   },
   created() {
@@ -270,10 +296,10 @@ const app = Vue.createApp({
       localStorage.removeItem("hx_user");
       this.mode = "list";
     },
-    async loadPosts(page = 1) {
+    async loadPosts(page = 1, append = false) {
       const parsedPage = Number.parseInt(page, 10);
       const normalizedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-      this.isLoadingPosts = true;
+      if (!append) this.isLoadingPosts = true;
       try {
         const params = [`page=${normalizedPage}`, `per_page=${this.postsPagination.per_page}`];
         if (this.searchQuery) params.push(`query=${encodeURIComponent(this.searchQuery)}`);
@@ -282,7 +308,13 @@ const app = Vue.createApp({
         params.push(`sort=${encodeURIComponent(this.sortOption || "default")}`);
         const suffix = params.length ? `?${params.join("&")}` : "";
         const response = await this.request({ url: `/posts${suffix}`, method: "GET" });
-        this.posts = response.items;
+        if (append) {
+          this.posts = [...this.posts, ...response.items];
+        } else {
+          this.posts = response.items;
+        }
+        this.currentPage = response.page;
+        this.hasMore = response.page < response.pages;
         this.postsPagination = {
           page: response.page,
           per_page: response.per_page,
@@ -292,13 +324,24 @@ const app = Vue.createApp({
       } catch (error) {
         this.setError("加载笔记失败");
       } finally {
-        this.isLoadingPosts = false;
+        if (!append) this.isLoadingPosts = false;
+      }
+    },
+    async loadMore() {
+      if (!this.hasMore || this.isLoadingMore) return;
+      this.isLoadingMore = true;
+      try {
+        await this.loadPosts(this.currentPage + 1, true);
+      } finally {
+        this.isLoadingMore = false;
       }
     },
     applySearch() {
+      this.posts = [];
       this.loadPosts(1);
     },
     onSearchEnter() {
+      this.posts = [];
       this.loadPosts(1);
     },
     toggleFilters() {
@@ -312,11 +355,8 @@ const app = Vue.createApp({
       this.searchTag = "";
       this.searchCategory = "";
       this.sortOption = "default";
+      this.posts = [];
       this.loadPosts(1);
-    },
-    changePage(nextPage) {
-      if (nextPage < 1 || nextPage > this.postsPagination.pages) return;
-      this.loadPosts(nextPage);
     },
     toggleTheme() {
       this.setTheme(this.theme === "light" ? "dark" : "light");
@@ -376,6 +416,7 @@ const app = Vue.createApp({
       try {
         const detail = await this.request({ url: `/posts/${post.id}`, method: "GET" });
         this.activePost = detail;
+        this.commentEditorExpanded = false;
         this.mode = "detail";
         await this.loadComments(post.id);
       } catch (error) {
@@ -405,16 +446,20 @@ const app = Vue.createApp({
         this.setError("评论内容不能为空");
         return;
       }
+      this.isSubmittingComment = true;
       try {
         await this.request({ url: `/posts/${this.activePost.id}/comments`, method: "POST", data: this.newComment });
         this.newComment = { author: "", content: "" };
-        this.loadComments(this.activePost.id);
+        this.commentEditorExpanded = false;
+        await this.loadComments(this.activePost.id);
         this.setError("评论成功");
       } catch (error) {
         this.setError(error.response?.data?.msg || "发表评论失败");
+      } finally {
+        this.isSubmittingComment = false;
       }
     },
-    backToList() { this.mode = "list"; this.activePost = null; }
+    backToList() { this.mode = "list"; this.activePost = null; this.commentEditorExpanded = false; }
   }
 });
 
