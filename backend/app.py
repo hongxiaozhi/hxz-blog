@@ -4,6 +4,7 @@ from datetime import timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_limiter import Limiter
 from flask_sqlalchemy import SQLAlchemy
 from markdown import markdown
 from models import db, Post, Comment
@@ -20,6 +21,21 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 
 CORS(app, supports_credentials=True)
 jwt = JWTManager(app)
+
+
+def get_real_ip():
+    # Use X-Forwarded-For when served behind Nginx; fallback to direct remote addr.
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+limiter = Limiter(
+    key_func=get_real_ip,
+    app=app,
+    default_limits=[],
+)
 
 db.init_app(app)
 
@@ -41,11 +57,17 @@ def login():
         return jsonify({"access_token": token, "username": username})
     return jsonify({"msg": "用户名或密码错误"}), 401
 
+
+@app.errorhandler(429)
+def handle_rate_limit(_error):
+    return jsonify({"msg": "评论过于频繁，请稍后再试"}), 429
+
 @app.route("/api/posts", methods=["GET"])
 def list_posts():
     keyword = request.args.get("query", "").strip()
     tag = request.args.get("tag", "").strip()
     category = request.args.get("category", "").strip()
+    sort = request.args.get("sort", "default").strip().lower()
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 10))
 
@@ -58,7 +80,13 @@ def list_posts():
     if category:
         q = q.filter(Post.category.ilike(f"%{category}%"))
 
-    t = q.order_by(Post.is_pinned.desc(), Post.created_at.desc())
+    if sort == "views":
+        t = q.order_by(Post.view_count.desc(), Post.created_at.desc())
+    elif sort == "oldest":
+        t = q.order_by(Post.created_at.asc())
+    else:
+        t = q.order_by(Post.is_pinned.desc(), Post.created_at.desc())
+
     pagination = t.paginate(page=page, per_page=per_page, error_out=False)
     result = {
         "items": [p.to_dict() for p in pagination.items],
@@ -95,6 +123,8 @@ def delete_comment(post_id, comment_id):
     return jsonify({"msg": "删除成功"})
 
 @app.route("/api/posts/<int:post_id>/comments", methods=["POST"])
+@limiter.limit("100 per hour")
+@limiter.limit("5 per minute")
 def create_comment(post_id):
     post = Post.query.get_or_404(post_id)
     data = request.get_json() or {}

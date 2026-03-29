@@ -76,12 +76,11 @@ const app = Vue.createApp({
               <label class="field-label">排序</label>
               <select v-model="sortOption">
                 <option value="default">默认排序（置顶优先 + 最新）</option>
-                <option value="views" disabled>按阅读量（即将支持）</option>
-                <option value="oldest" disabled>最早发布（即将支持）</option>
+                <option value="views">按阅读量</option>
+                <option value="oldest">最早发布</option>
               </select>
             </div>
           </div>
-          <p class="label sort-note">当前后端仅支持默认排序，其他排序选项仅用于界面占位说明。</p>
           <div class="action-row">
             <button @click="applySearch">应用筛选</button>
           </div>
@@ -280,6 +279,7 @@ const app = Vue.createApp({
         if (this.searchQuery) params.push(`query=${encodeURIComponent(this.searchQuery)}`);
         if (this.searchTag) params.push(`tag=${encodeURIComponent(this.searchTag)}`);
         if (this.searchCategory) params.push(`category=${encodeURIComponent(this.searchCategory)}`);
+        params.push(`sort=${encodeURIComponent(this.sortOption || "default")}`);
         const suffix = params.length ? `?${params.join("&")}` : "";
         const response = await this.request({ url: `/posts${suffix}`, method: "GET" });
         this.posts = response.items;
