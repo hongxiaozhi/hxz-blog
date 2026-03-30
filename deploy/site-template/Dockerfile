@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1
 
-ARG PIP_INDEX_URL=https://pypi.org/simple
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG APT_MIRROR=mirrors.tuna.tsinghua.edu.cn
 
 RUN sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
@@ -15,8 +15,12 @@ WORKDIR /app
 
 # install python deps
 COPY backend/requirements.txt /app/requirements.txt
-RUN python -m pip install --upgrade pip \
-    && python -m pip install --no-cache-dir --index-url ${PIP_INDEX_URL} -r requirements.txt
+RUN python -m pip install \
+    --no-cache-dir \
+    --default-timeout=300 \
+    --retries 10 \
+    --index-url ${PIP_INDEX_URL} \
+    -r requirements.txt
 
 # copy application (both backend + frontend)
 COPY backend /app/backend
