@@ -1,184 +1,61 @@
-# XiaozhiBlog Product Roadmap
+# Roadmap
 
-> Version: v1 (2026-03-25)
-> Goal: Build an iOS-style personal blog that is beautiful, complete, and production-ready.
+最后更新：2026-03-30
 
-## Current Execution Status (Updated)
+## 产品目标
 
-## Overall Phase Status
+把 `hxz-blog` 逐步打磨成一个可持续写作、可稳定部署、对移动端友好的个人博客系统。
 
-1. Phase 1 - UI Foundation: In Progress
-2. Phase 2 - Core Content Features: Partially Completed
-3. Phase 3 - Discoverability and Operations: Partially Completed
-4. Phase 4 - Quality, Security, Performance: Not Started
-5. Phase 5 - Release and Continuous Delivery: Not Started
+## 当前阶段
 
-## Completed Baseline (Already Implemented)
+当前阶段：`v1.x`
 
-1. Authentication and role boundary (visitor vs author write operations).
-2. Post CRUD API and UI flow.
-3. Markdown rendering in detail/editor preview.
-4. Search by keyword, tag, and category.
-5. Pagination and pinned posts ordering.
-6. Post view counter.
-7. Comment listing and submission.
-8. Basic responsive behavior and light/dark theme toggle.
+当前重点：先把核心写作、阅读、评论、部署链路稳定下来，再继续优化体验和内容管理能力。
 
-## In Progress Now
+## 版本规划
 
-1. iOS-style visual refactor for core pages and components.
-2. Unified design tokens and stronger visual consistency.
+### v1.3
+目标：优化首页分页、详情页节奏、评论区交互和移动端体验。
+状态：进行中
+重点：
+- 加载更多替代传统分页
+- 评论输入与状态反馈优化
+- 详情页与列表页视觉层级优化
 
-## Iteration A Progress (Current)
+### v1.4
+目标：提升编辑效率，完成编辑页与移动端深度适配。
+状态：未开始
+重点：
+- 编辑页双栏/单栏切换
+- 保存入口更稳定
+- 小屏设备适配完善
 
-1. Completed: replaced major inline styles with reusable UI classes.
-2. Completed: added loading state and empty state for post list.
-3. Completed: added theme persistence (`hx_theme`) to keep user preference.
-4. Completed: improved action hierarchy (secondary/danger buttons).
-5. Remaining in Iteration A: final polish for login/list/detail/editor spacing and visual rhythm.
+### v1.5
+目标：统一全站交互反馈与文案风格，为后续功能扩展打基础。
+状态：未开始
+重点：
+- loading / 成功 / 失败反馈统一
+- 空状态与错误状态文案统一
+- 新手引导与可信度提示
 
-## Next 2 Iterations (Execution Queue)
+### v1.6
+目标：补齐文章状态管理能力。
+状态：未开始
+重点：
+- 草稿 / 已发布 / 归档
+- 列表与编辑页状态控制
 
-1. Iteration A (current): finish iOS-style UI baseline for login/list/detail/editor.
-2. Iteration B (next): add post status workflow (draft/published/archived) and comment moderation.
+### v1.7
+目标：支持 Markdown 图片上传。
+状态：未开始
+重点：
+- 上传接口
+- 编辑器插图
+- 预览与错误提示
 
-## Product Vision
+## 暂不纳入当前阶段
 
-1. Visual: iOS-inspired interface (clean spacing, soft shadows, rounded corners, frosted glass, smooth motion).
-2. Functional: Full blog features for both author and visitors.
-3. Engineering: Maintainable architecture, reliable delivery, and deployment-ready workflows.
-
-## Phase Plan
-
-## Phase 1 - UI Foundation (Week 1-2)
-
-### Objectives
-
-1. Build a design system (color, typography, spacing, radius, shadow, motion).
-2. Standardize core components (button, input, card, modal, nav, tag, pagination).
-3. Refactor key pages (login, list, detail, editor) to iOS style.
-
-### Deliverables
-
-1. Shared style tokens in CSS variables. [In Progress]
-2. Reusable UI component styles and utility classes. [In Progress]
-3. Responsive layout for desktop and mobile. [Completed - baseline]
-4. Light and dark themes with consistent visual hierarchy. [Completed - baseline, needs visual polish]
-
-### Definition of Done
-
-1. Core pages are visually consistent.
-2. Mobile usability is acceptable on common screen sizes.
-3. No obvious layout shifting on first load.
-
-## Phase 2 - Core Content Features (Week 3-4)
-
-### Objectives
-
-1. Improve publishing workflow: draft, publish, archive.
-2. Enhance metadata: cover image, summary, slug, SEO description.
-3. Upgrade taxonomy and comments: category/tag management, moderation.
-
-### Deliverables
-
-1. Post status support with clear UI actions. [Not Started]
-2. Category and tag management views. [Partially Completed]
-3. Comment moderation pipeline (pending, approved, rejected). [Not Started]
-4. Basic anti-spam and input validation. [Partially Completed]
-
-### Definition of Done
-
-1. Author can fully manage article lifecycle.
-2. Visitor can browse and comment with stable experience.
-3. All critical write actions provide clear feedback and error states.
-
-## Phase 3 - Discoverability and Operations (Week 5-6)
-
-### Objectives
-
-1. Better discovery: full-text search, related posts, hot posts.
-2. Improve profile and about pages.
-3. Add lightweight analytics and operations dashboard.
-
-### Deliverables
-
-1. Search across title/content/tags. [Completed]
-2. About page with author profile and links.
-3. Basic metrics: page views, popular posts, trend snapshots.
-
-### Definition of Done
-
-1. Users can discover relevant content quickly.
-2. Author can inspect content performance.
-3. Navigation depth and retention are measurably improved.
-
-## Phase 4 - Quality, Security, Performance (Week 7-8)
-
-### Objectives
-
-1. Harden auth and validation.
-2. Improve rendering and API performance.
-3. Add test coverage for critical paths.
-
-### Deliverables
-
-1. Token expiration handling and refresh strategy.
-2. Rate limiting for login and key write APIs.
-3. Better cache and asset loading strategy.
-4. API tests and E2E tests for login, publish, edit, comment.
-
-### Definition of Done
-
-1. Core user flows pass reliably.
-2. Main security risks are mitigated.
-3. Regression risk is controlled with automated tests.
-
-## Phase 5 - Release and Continuous Delivery (Week 9-10)
-
-### Objectives
-
-1. Standardize deployment and rollback.
-2. Improve SEO and accessibility.
-3. Establish iterative release rhythm.
-
-### Deliverables
-
-1. Environment split (dev, test, prod).
-2. One-command deploy and backup scripts.
-3. SEO baseline (sitemap, robots, metadata) and accessibility baseline.
-4. Bi-weekly release planning process.
-
-### Definition of Done
-
-1. Service can be deployed and rolled back reliably.
-2. Search engines can index key pages.
-3. Team (or solo workflow) has predictable delivery cadence.
-
-## Prioritization Rules
-
-## Must-Have
-
-1. Auth and role boundaries.
-2. Post CRUD and publishing lifecycle.
-3. Comment moderation.
-4. Responsive UI and theme consistency.
-
-## Should-Have
-
-1. Analytics dashboard.
-2. SEO metadata management.
-3. Better taxonomy operations.
-
-## Could-Have
-
-1. Scheduled publishing.
-2. Recommendation strategy.
-3. Subscription and notifications.
-4. AI-assisted writing helpers.
-
-## Development Protocol
-
-1. All new features map to one phase and one objective.
-2. Every feature change includes acceptance criteria.
-3. High-impact changes require a quick regression checklist.
-4. Keep README concise and roadmap as the source of truth.
+- 多用户系统
+- PostgreSQL 迁移
+- 重型后台管理系统
+- 复杂内容审核流程
