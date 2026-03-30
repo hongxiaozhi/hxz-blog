@@ -5,3 +5,4 @@ flask-sqlalchemy
 markdown
 bcrypt
 Flask-Limiter
+gunicorn
