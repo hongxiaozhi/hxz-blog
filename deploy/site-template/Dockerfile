@@ -3,8 +3,11 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1
 
 ARG PIP_INDEX_URL=https://pypi.org/simple
+ARG APT_MIRROR=mirrors.tuna.tsinghua.edu.cn
 
-RUN apt-get update \
+RUN sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && sed -i "s|security.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install -y build-essential libffi-dev libssl-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
