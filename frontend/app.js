@@ -6,7 +6,10 @@ const app = Vue.createApp({
   template: `
     <div class="container">
       <div class="app-header card">
-        <span class="brand-mark">h_xiaozhi</span>
+        <div class="brand-cluster">
+          <span class="brand-mark">h_xiaozhi</span>
+          <span class="app-version-badge">{{ appVersion }}</span>
+        </div>
         <div class="center-search">
           <input class="center-search-input" v-model="searchQuery" placeholder="搜索标题或正文..." @keyup.enter="onSearchEnter" />
           <button class="center-search-btn" @click="applySearch">搜索</button>
@@ -41,7 +44,11 @@ const app = Vue.createApp({
         <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">{{ message }}</div>
       </div>
 
-      <div class="card" v-if="mode === 'list'">
+        <div class="card" v-if="mode === 'list'">
+        <div class="page-meta-row">
+          <span class="label">当前运行版本 {{ appVersion }}</span>
+          <span class="label">当前页面：{{ currentModeLabel }}</span>
+        </div>
         <h2 class="list-title">探索笔记</h2>
         <p class="label search-intro">先搜索，再筛选。输入关键词后按 Enter，或点击“应用筛选”获取结果。</p>
 
@@ -129,6 +136,10 @@ const app = Vue.createApp({
       </div>
 
       <div class="card" v-if="mode === 'detail' && activePost">
+        <div class="page-meta-row">
+          <span class="label">当前运行版本 {{ appVersion }}</span>
+          <span class="label">当前页面：{{ currentModeLabel }}</span>
+        </div>
         <div class="detail-topbar">
           <div class="action-row">
             <button class="btn-secondary" @click="backToList">返回列表</button>
@@ -190,6 +201,10 @@ const app = Vue.createApp({
       </div>
 
       <div class="card" v-if="mode === 'edit'">
+        <div class="page-meta-row">
+          <span class="label">当前运行版本 {{ appVersion }}</span>
+          <span class="label">当前页面：{{ currentModeLabel }}</span>
+        </div>
         <div class="editor-shell">
           <div class="editor-toolbar">
             <div>
@@ -280,6 +295,7 @@ const app = Vue.createApp({
       isSavingPost: false,
       initialFormSnapshot: "",
       lastSavedAt: "",
+      appVersion: "v1.4.0",
     };
   },
   computed: {
@@ -334,6 +350,11 @@ const app = Vue.createApp({
     },
     lastSavedAtLabel() {
       return this.lastSavedAt ? `上次保存于 ${this.lastSavedAt}` : "";
+    },
+    currentModeLabel() {
+      if (this.mode === "detail") return "文章详情";
+      if (this.mode === "edit") return "编辑器";
+      return "文章列表";
     },
   },
   watch: {
