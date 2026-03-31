@@ -3,7 +3,6 @@ import bcrypt
 from datetime import timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from werkzeug.exceptions import HTTPException
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_limiter import Limiter
 from flask_sqlalchemy import SQLAlchemy
@@ -22,14 +21,6 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 
 CORS(app, supports_credentials=True)
 jwt = JWTManager(app)
-
-
-def json_error(message, status_code):
-    return jsonify({"msg": message}), status_code
-
-
-def is_api_request():
-    return request.path.startswith("/api/")
 
 
 def get_real_ip():
@@ -60,76 +51,16 @@ def login():
     username = data.get("username", "")
     password = data.get("password", "")
     if not ADMIN_PASSWORD_HASH:
-        return json_error("服务器未配置管理员密码，请联系管理员", 500)
+        return jsonify({"msg": "服务器未配置管理员密码，请联系管理员"}), 500
     if username == ADMIN_USERNAME and bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH):
         token = create_access_token(identity=username)
         return jsonify({"access_token": token, "username": username})
-    return json_error("用户名或密码错误", 401)
+    return jsonify({"msg": "用户名或密码错误"}), 401
 
 
 @app.errorhandler(429)
 def handle_rate_limit(_error):
-    if is_api_request():
-        return json_error("评论过于频繁，请稍后再试", 429)
-    return _error
-
-
-@app.errorhandler(HTTPException)
-def handle_http_exception(error):
-    if not is_api_request():
-        return error
-
-    default_messages = {
-        400: "请求参数无效",
-        401: "当前操作需要登录",
-        403: "没有权限执行该操作",
-        404: "请求的内容不存在",
-        405: "请求方法不被允许",
-    }
-    return json_error(default_messages.get(error.code, error.description), error.code)
-
-
-@jwt.unauthorized_loader
-def handle_missing_token(_reason):
-    return json_error("当前操作需要登录", 401)
-
-
-@jwt.invalid_token_loader
-def handle_invalid_token(_reason):
-    return json_error("登录状态无效，请重新登录", 401)
-
-
-@jwt.expired_token_loader
-def handle_expired_token(_jwt_header, _jwt_payload):
-    return json_error("登录已过期，请重新登录", 401)
-
-
-@jwt.revoked_token_loader
-def handle_revoked_token(_jwt_header, _jwt_payload):
-    return json_error("登录状态已失效，请重新登录", 401)
-
-
-@jwt.needs_fresh_token_loader
-def handle_non_fresh_token(_jwt_header, _jwt_payload):
-    return json_error("请重新登录后再继续", 401)
-
-
-@jwt.user_lookup_error_loader
-def handle_user_lookup_error(_jwt_header, _jwt_payload):
-    return json_error("登录状态无效，请重新登录", 401)
-
-
-def parse_positive_int(raw_value, default_value, minimum=1, maximum=None):
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default_value
-
-    if value < minimum:
-        return minimum
-    if maximum is not None and value > maximum:
-        return maximum
-    return value
+    return jsonify({"msg": "评论过于频繁，请稍后再试"}), 429
 
 @app.route("/api/posts", methods=["GET"])
 def list_posts():
@@ -137,8 +68,8 @@ def list_posts():
     tag = request.args.get("tag", "").strip()
     category = request.args.get("category", "").strip()
     sort = request.args.get("sort", "default").strip().lower()
-    page = parse_positive_int(request.args.get("page", 1), 1)
-    per_page = parse_positive_int(request.args.get("per_page", 10), 10, maximum=20)
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 10))
 
     q = Post.query
     if keyword:
@@ -168,9 +99,7 @@ def list_posts():
 
 @app.route("/api/posts/<int:post_id>", methods=["GET"])
 def get_post(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
+    post = Post.query.get_or_404(post_id)
     post.view_count = post.view_count + 1
     db.session.commit()
     data = post.to_dict()
@@ -180,9 +109,7 @@ def get_post(post_id):
 
 @app.route("/api/posts/<int:post_id>/comments", methods=["GET"])
 def get_comments(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
+    post = Post.query.get_or_404(post_id)
     comments = [c.to_dict() for c in Comment.query.filter_by(post_id=post.id).order_by(Comment.created_at.desc()).all()]
     return jsonify(comments)
 
@@ -190,12 +117,7 @@ def get_comments(post_id):
 @app.route("/api/posts/<int:post_id>/comments/<int:comment_id>", methods=["DELETE"])
 @jwt_required()
 def delete_comment(post_id, comment_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
-    comment = Comment.query.filter_by(id=comment_id, post_id=post_id).first()
-    if not comment:
-        return json_error("评论不存在或已被删除", 404)
+    comment = Comment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
     db.session.delete(comment)
     db.session.commit()
     return jsonify({"msg": "删除成功"})
@@ -204,14 +126,12 @@ def delete_comment(post_id, comment_id):
 @limiter.limit("100 per hour")
 @limiter.limit("5 per minute")
 def create_comment(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
+    post = Post.query.get_or_404(post_id)
     data = request.get_json() or {}
     author = (data.get("author") or "匿名").strip()
     content = (data.get("content") or "").strip()
     if not content:
-        return json_error("评论内容不能为空", 400)
+        return jsonify({"msg": "评论内容不能为空"}), 400
     comment = Comment(post_id=post.id, author=author, content=content)
     db.session.add(comment)
     db.session.commit()
@@ -227,10 +147,10 @@ def create_post():
     tags = ",".join([t.strip() for t in (data.get("tags", "") or "").split(",") if t.strip()])
     is_pinned = bool(data.get("is_pinned", False))
     if not title or not content:
-        return json_error("标题和内容不能为空", 400)
+        return jsonify({"msg": "标题和内容不能为空"}), 400
     duplicate = Post.query.filter_by(title=title).first()
     if duplicate:
-        return json_error("标题已存在，请更换标题", 400)
+        return jsonify({"msg": "标题已存在，请更换标题"}), 400
     post = Post(title=title, content=content, category=category, tags=tags, is_pinned=is_pinned)
     db.session.add(post)
     db.session.commit()
@@ -239,9 +159,7 @@ def create_post():
 @app.route("/api/posts/<int:post_id>", methods=["PUT"])
 @jwt_required()
 def update_post(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
+    post = Post.query.get_or_404(post_id)
     data = request.get_json() or {}
     title = data.get("title", "").strip()
     content = data.get("content", "").strip()
@@ -249,10 +167,10 @@ def update_post(post_id):
     tags = ",".join([t.strip() for t in (data.get("tags", "") or "").split(",") if t.strip()])
     is_pinned = bool(data.get("is_pinned", False))
     if not title or not content:
-        return json_error("标题和内容不能为空", 400)
+        return jsonify({"msg": "标题和内容不能为空"}), 400
     duplicate = Post.query.filter(Post.id != post.id, Post.title == title).first()
     if duplicate:
-        return json_error("标题已存在，请更换标题", 400)
+        return jsonify({"msg": "标题已存在，请更换标题"}), 400
     post.title = title
     post.content = content
     post.category = category
@@ -264,9 +182,7 @@ def update_post(post_id):
 @app.route("/api/posts/<int:post_id>", methods=["DELETE"])
 @jwt_required()
 def delete_post(post_id):
-    post = Post.query.get(post_id)
-    if not post:
-        return json_error("文章不存在或已被删除", 404)
+    post = Post.query.get_or_404(post_id)
     db.session.delete(post)
     db.session.commit()
     return jsonify({"msg": "删除成功"})
