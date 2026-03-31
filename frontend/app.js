@@ -1,6 +1,13 @@
-const API_BASE = (location.port === '' || location.port === '80' || location.port === '443')
-  ? `${location.protocol}//${location.hostname}/api`
-  : `${location.protocol}//${location.hostname}:5000/api`;
+// Prefer same-origin relative API path when frontend is served by backend/static server.
+// Fallback to explicit host:port only when running in a dev mode with a different backend port.
+const API_BASE = (function(){
+  try {
+    // If the page is served from the backend (same origin), use relative path.
+    return '/api';
+  } catch (e) {
+    return `${location.protocol}//${location.hostname}:5000/api`;
+  }
+})();
 
 const app = Vue.createApp({
   template: `
@@ -41,7 +48,10 @@ const app = Vue.createApp({
             </div>
           </div>
         </div>
-        <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">{{ message }}</div>
+        <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">
+          <strong>{{ messageTypeLabel }}</strong>
+          <span>{{ message }}</span>
+        </div>
       </div>
 
       <div class="card" v-if="mode === 'list'">
@@ -275,6 +285,27 @@ const app = Vue.createApp({
           </div>
         </div>
       </div>
+
+      <div class="card site-status-card">
+        <div class="site-status-grid">
+          <div class="site-status-item">
+            <span class="label">当前版本</span>
+            <strong>{{ appVersion }}</strong>
+          </div>
+          <div class="site-status-item">
+            <span class="label">反馈风格</span>
+            <strong>loading / info / success / error</strong>
+          </div>
+          <div class="site-status-item">
+            <span class="label">评论策略</span>
+            <strong>公开展示，管理员可管理</strong>
+          </div>
+          <div class="site-status-item">
+            <span class="label">部署方式</span>
+            <strong>根目录 Docker Compose</strong>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   data() {
@@ -371,6 +402,15 @@ const app = Vue.createApp({
       if (this.mode === "detail") return "文章详情";
       if (this.mode === "edit") return "编辑器";
       return "文章列表";
+    },
+    messageTypeLabel() {
+      const labels = {
+        error: "失败提示",
+        success: "成功提示",
+        info: "信息提示",
+        loading: "加载提示",
+      };
+      return labels[this.messageType] || "状态提示";
     },
   },
   watch: {

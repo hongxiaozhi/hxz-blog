@@ -284,4 +284,5 @@ def serve_frontend(path):
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # 文档中约定本地服务端口为 5001，保持代码与文档一致
+    app.run(host="0.0.0.0", port=5001, debug=True)

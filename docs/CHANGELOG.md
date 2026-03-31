@@ -14,6 +14,8 @@
 ### Notes
 - 当前已正式进入 `v1.5`，首批工作聚焦反馈样式、空状态文案和可信提示
 - 本条目记录版本内迭代结果，待版本完成后再整理正式发布说明
+### Internal fixes (smoke-test)
+- 修复 Docker 运行时的 SQLite 问题：构建镜像时容器内 `backend/blog.db` 异常为目录，已删除并通过 `init_db.py` 初始化为 SQLite 文件，API `/api/posts` 返回 200（空集合），本地 Docker smoke-test 验证通过。
 
 ## v1.4.1 - 2026-03-31
 
