@@ -190,18 +190,59 @@ const app = Vue.createApp({
       </div>
 
       <div class="card" v-if="mode === 'edit'">
-        <button class="btn-secondary" @click="mode='list'">取消</button>
-        <h2>{{ form.id ? '编辑笔记' : '新建笔记' }}</h2>
-        <input v-model="form.title" placeholder="标题" />
-        <input v-model="form.category" placeholder="分类" />
-        <input v-model="form.tags" placeholder="标签，逗号分隔" />
-        <textarea v-model="form.content" rows="10" placeholder="Markdown 内容"></textarea>
-        <label class="toggle-line">置顶：<input type="checkbox" v-model="form.is_pinned" /></label>
-        <div class="action-row">
-          <button @click="save">保存</button>
+        <div class="editor-shell">
+          <div class="editor-toolbar">
+            <div>
+              <div class="label">v1.4 编辑效率优化</div>
+              <h2>{{ form.id ? '编辑笔记' : '新建笔记' }}</h2>
+              <p class="editor-intro">在输入与预览之间快速切换，保持保存入口始终稳定可见。</p>
+            </div>
+            <div class="editor-toolbar-actions">
+              <button class="btn-secondary btn-small" @click="setEditorLayout('split')" :disabled="isMobileViewport">双栏</button>
+              <button class="btn-secondary btn-small" @click="setEditorLayout('stacked')">单栏</button>
+              <button class="btn-secondary" @click="cancelEdit">取消</button>
+              <button @click="save" :disabled="isSavingPost">{{ isSavingPost ? '保存中...' : '保存' }}</button>
+            </div>
+          </div>
+
+          <div class="editor-status-bar">
+            <span class="label">{{ editorLayoutLabel }}</span>
+            <span class="label">{{ editorStatusText }}</span>
+          </div>
+
+          <div class="editor-grid" :class="editorLayoutClass">
+            <div class="editor-pane">
+              <div class="editor-section-header">
+                <h3>编辑内容</h3>
+                <span class="label">支持 Markdown，预览实时同步。</span>
+              </div>
+              <div class="editor-form-grid">
+                <div class="field-wrap editor-field-wide">
+                  <label class="field-label">标题</label>
+                  <input v-model="form.title" placeholder="输入标题" />
+                </div>
+                <div class="field-wrap">
+                  <label class="field-label">分类</label>
+                  <input v-model="form.category" placeholder="例如：开发日志" />
+                </div>
+                <div class="field-wrap">
+                  <label class="field-label">标签</label>
+                  <input v-model="form.tags" placeholder="标签，逗号分隔" />
+                </div>
+              </div>
+              <label class="toggle-line">置顶：<input type="checkbox" v-model="form.is_pinned" /></label>
+              <textarea class="editor-textarea" v-model="form.content" rows="18" placeholder="Markdown 内容"></textarea>
+            </div>
+
+            <div class="editor-pane editor-preview-pane">
+              <div class="editor-section-header">
+                <h3>Markdown 预览</h3>
+                <span class="label">预计字数 {{ editorWordCount }}，字符 {{ editorCharacterCount }}{{ lastSavedAtLabel ? ` · ${lastSavedAtLabel}` : '' }}</span>
+              </div>
+              <div class="preview editor-preview" v-html="markdownHtml"></div>
+            </div>
+          </div>
         </div>
-        <h3>Markdown 预览</h3>
-        <div class="preview" v-html="markdownHtml"></div>
       </div>
     </div>
   `,
@@ -235,6 +276,10 @@ const app = Vue.createApp({
       currentPostComments: [],
       newComment: { author: "", content: "" },
       showUserPanel: false,
+      editorLayout: localStorage.getItem("hx_editor_layout") || "split",
+      isSavingPost: false,
+      initialFormSnapshot: "",
+      lastSavedAt: "",
     };
   },
   computed: {
@@ -262,6 +307,34 @@ const app = Vue.createApp({
       if (this.currentPostComments.length === 0) return "还没有评论。";
       return `共 ${this.currentPostComments.length} 条评论，按时间倒序显示。`;
     },
+    editorLayoutClass() {
+      return this.editorLayout === "split" && !this.isMobileViewport ? "editor-grid-split" : "editor-grid-stacked";
+    },
+    editorLayoutLabel() {
+      if (this.isMobileViewport) return "当前为移动端单栏编辑布局。";
+      return this.editorLayout === "split" ? "当前为双栏编辑布局。" : "当前为单栏编辑布局。";
+    },
+    editorStatusText() {
+      if (this.isSavingPost) return "保存进行中，请稍候。";
+      if (this.hasUnsavedChanges) return "当前有未保存变更，可使用 Ctrl/Cmd + S 快速保存。";
+      if (!this.form.title.trim() && !this.form.content.trim()) return "尚未开始编辑内容。";
+      if (!this.form.title.trim()) return "建议先补充标题，保存会更顺畅。";
+      if (!this.form.content.trim()) return "正文为空，当前仅编辑了基础信息。";
+      return "正文与预览已保持同步，可直接保存。";
+    },
+    editorWordCount() {
+      const text = (this.form.content || "").trim();
+      return text ? text.split(/\s+/).filter(Boolean).length : 0;
+    },
+    editorCharacterCount() {
+      return (this.form.content || "").trim().length;
+    },
+    hasUnsavedChanges() {
+      return this.mode === "edit" && this.getFormSnapshot() !== this.initialFormSnapshot;
+    },
+    lastSavedAtLabel() {
+      return this.lastSavedAt ? `上次保存于 ${this.lastSavedAt}` : "";
+    },
   },
   watch: {
     activePost(newVal) {
@@ -283,11 +356,13 @@ const app = Vue.createApp({
     this.syncViewport();
     this.filtersExpanded = this.isMobileViewport;
     window.addEventListener("resize", this.syncViewport);
+    window.addEventListener("beforeunload", this.onBeforeUnload);
     document.addEventListener("click", this.onGlobalClick);
     document.addEventListener("keydown", this.onGlobalKeydown);
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.syncViewport);
+    window.removeEventListener("beforeunload", this.onBeforeUnload);
     document.removeEventListener("click", this.onGlobalClick);
     document.removeEventListener("keydown", this.onGlobalKeydown);
   },
@@ -295,7 +370,19 @@ const app = Vue.createApp({
     toggleUserPanel() { this.showUserPanel = !this.showUserPanel; },
     closeUserPanel() { this.showUserPanel = false; },
     onGlobalClick() { this.showUserPanel = false; },
-    onGlobalKeydown(e) { if (e.key === "Escape") this.showUserPanel = false; },
+    onGlobalKeydown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && this.mode === "edit") {
+        e.preventDefault();
+        if (!this.isSavingPost) this.save();
+        return;
+      }
+      if (e.key === "Escape") this.showUserPanel = false;
+    },
+    onBeforeUnload(e) {
+      if (!this.hasUnsavedChanges) return;
+      e.preventDefault();
+      e.returnValue = "";
+    },
     async loginFromPanel() {
       await this.login();
       if (this.isLoggedIn) this.closeUserPanel();
@@ -316,6 +403,20 @@ const app = Vue.createApp({
       const normalized = (content || "").replace(/[#>*`_\-\n]/g, " ").replace(/\s+/g, " ").trim();
       if (!normalized) return "这篇笔记还没有摘要内容。";
       return normalized.length > 96 ? `${normalized.slice(0, 96)}...` : normalized;
+    },
+    getFormSnapshot() {
+      return JSON.stringify({
+        id: this.form.id,
+        title: (this.form.title || "").trim(),
+        content: this.form.content || "",
+        tags: (this.form.tags || "").trim(),
+        category: (this.form.category || "").trim(),
+        is_pinned: Boolean(this.form.is_pinned),
+      });
+    },
+    markEditorSaved() {
+      this.initialFormSnapshot = this.getFormSnapshot();
+      this.lastSavedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     },
     setTheme(theme) {
       const normalizedTheme = theme === "dark" ? "dark" : "light";
@@ -423,6 +524,12 @@ const app = Vue.createApp({
     },
     syncViewport() {
       this.isMobileViewport = window.innerWidth <= 768;
+      if (this.isMobileViewport) this.editorLayout = "stacked";
+    },
+    setEditorLayout(layout) {
+      const nextLayout = layout === "split" ? "split" : "stacked";
+      this.editorLayout = this.isMobileViewport ? "stacked" : nextLayout;
+      localStorage.setItem("hx_editor_layout", this.editorLayout);
     },
     clearSearch() {
       this.searchQuery = "";
@@ -437,6 +544,7 @@ const app = Vue.createApp({
     },
     edit(post) {
       this.mode = "edit";
+      this.setEditorLayout(this.editorLayout);
       this.form = {
         id: post.id,
         title: post.title,
@@ -445,16 +553,31 @@ const app = Vue.createApp({
         category: post.category || "",
         is_pinned: post.is_pinned || false,
       };
+      this.lastSavedAt = "";
+      this.$nextTick(() => {
+        this.initialFormSnapshot = this.getFormSnapshot();
+      });
     },
     newPost() {
       this.mode = "edit";
+      this.setEditorLayout(this.editorLayout);
       this.form = { id: null, title: "", content: "", tags: "", category: "", is_pinned: false };
+      this.lastSavedAt = "";
+      this.$nextTick(() => {
+        this.initialFormSnapshot = this.getFormSnapshot();
+      });
+    },
+    cancelEdit() {
+      if (this.hasUnsavedChanges && !confirm("当前有未保存内容，确定离开编辑页吗？")) return;
+      this.mode = "list";
+      this.lastSavedAt = "";
     },
     async save() {
       if (!this.form.title.trim() || !this.form.content.trim()) {
         this.setError("标题或内容不能为空");
         return;
       }
+      this.isSavingPost = true;
       try {
         const payload = {
           title: this.form.title,
@@ -470,10 +593,13 @@ const app = Vue.createApp({
           await this.request({ url: "/posts", method: "POST", data: payload });
           this.setSuccess("发布成功");
         }
+        this.markEditorSaved();
         this.mode = "list";
         this.loadPosts();
       } catch (error) {
         this.setError(error.response?.data?.msg || "保存失败");
+      } finally {
+        this.isSavingPost = false;
       }
     },
     async remove(post) {

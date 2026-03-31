@@ -498,6 +498,114 @@ select:focus {
   margin: 0;
 }
 
+.editor-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor-toolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: color-mix(in srgb, var(--card-solid) 94%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.editor-toolbar h2 {
+  margin: 2px 0 6px;
+}
+
+.editor-intro {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.editor-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.editor-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.editor-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.editor-grid-split {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+
+.editor-grid-stacked {
+  grid-template-columns: 1fr;
+}
+
+.editor-pane {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: color-mix(in srgb, var(--card-solid) 92%, transparent);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+}
+
+.editor-preview-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.editor-section-header h3 {
+  margin-bottom: 0;
+}
+
+.editor-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.editor-field-wide {
+  grid-column: 1 / -1;
+}
+
+.editor-textarea {
+  min-height: 420px;
+  resize: vertical;
+}
+
+.editor-preview {
+  min-height: 420px;
+}
+
+.editor-toolbar-actions button {
+  white-space: nowrap;
+}
+
 .empty-state {
   padding: 16px;
   border-radius: 12px;
@@ -608,7 +716,9 @@ select:focus {
 
   .detail-topbar,
   .section-heading,
-  .comment-header {
+  .comment-header,
+  .editor-toolbar,
+  .editor-section-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -632,6 +742,24 @@ select:focus {
 
   .comment-actions > * {
     flex: 1 1 100%;
+  }
+
+  .editor-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-toolbar {
+    top: 8px;
+    padding: 12px;
+  }
+
+  .editor-toolbar-actions > * {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .editor-textarea,
+  .editor-preview {
+    min-height: 280px;
   }
 }
 
@@ -785,6 +913,10 @@ select:focus {
 
   .detail-meta .meta-chip {
     width: 100%;
+  }
+
+  .editor-toolbar-actions > * {
+    flex: 1 1 100%;
   }
 }
 
