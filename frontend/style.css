@@ -85,6 +85,14 @@ body {
   background: linear-gradient(180deg, #0f766e, #0d9488);
 }
 
+.notice-info {
+  background: linear-gradient(180deg, #2563eb, #1d4ed8);
+}
+
+.notice-loading {
+  background: linear-gradient(180deg, #0f766e, #0f766e);
+}
+
 .action-card,
 .action-row {
   display: flex;
@@ -606,6 +614,33 @@ select:focus {
   white-space: nowrap;
 }
 
+.hint-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.08);
+  color: color-mix(in srgb, var(--text) 92%, #ffffff);
+  line-height: 1.6;
+}
+
+.hint-banner strong {
+  flex-shrink: 0;
+  color: #1d4ed8;
+}
+
+.hint-banner-subtle {
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--card-solid) 94%, transparent);
+}
+
+.editor-empty-state {
+  min-height: 220px;
+}
+
 .empty-state {
   padding: 16px;
   border-radius: 12px;
@@ -718,7 +753,8 @@ select:focus {
   .section-heading,
   .comment-header,
   .editor-toolbar,
-  .editor-section-header {
+  .editor-section-header,
+  .hint-banner {
     flex-direction: column;
     align-items: stretch;
   }

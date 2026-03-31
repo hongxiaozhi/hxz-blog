@@ -44,10 +44,14 @@ const app = Vue.createApp({
         <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">{{ message }}</div>
       </div>
 
-        <div class="card" v-if="mode === 'list'">
+      <div class="card" v-if="mode === 'list'">
         <div class="page-meta-row">
           <span class="label">当前运行版本 {{ appVersion }}</span>
           <span class="label">当前页面：{{ currentModeLabel }}</span>
+        </div>
+        <div class="hint-banner">
+          <strong>使用提示</strong>
+          <span>先搜索或筛选，再进入详情阅读；评论默认公开展示，管理员登录后可直接管理内容。</span>
         </div>
         <h2 class="list-title">探索笔记</h2>
         <p class="label search-intro">先搜索，再筛选。输入关键词后按 Enter，或点击“应用筛选”获取结果。</p>
@@ -140,6 +144,10 @@ const app = Vue.createApp({
           <span class="label">当前运行版本 {{ appVersion }}</span>
           <span class="label">当前页面：{{ currentModeLabel }}</span>
         </div>
+        <div class="hint-banner hint-banner-subtle">
+          <strong>可信提示</strong>
+          <span>这是个人博客正文页，评论按时间倒序展示；如果内容加载失败，可以直接使用页面内的重试入口。</span>
+        </div>
         <div class="detail-topbar">
           <div class="action-row">
             <button class="btn-secondary" @click="backToList">返回列表</button>
@@ -176,8 +184,8 @@ const app = Vue.createApp({
             <button class="btn-secondary btn-small" style="margin-top:10px" @click="loadComments(activePost.id, true)">重试</button>
           </div>
 
-          <div class="comment-box comment-status" v-else-if="isLoadingComments">评论加载中...</div>
-          <div class="comment-box comment-status" v-else-if="currentPostComments.length === 0">暂无评论，快来第一个发表吧。</div>
+          <div class="comment-box comment-status" v-else-if="isLoadingComments">评论加载中，请稍候。</div>
+          <div class="comment-box comment-status" v-else-if="currentPostComments.length === 0">当前还没有评论，欢迎留下第一条反馈。</div>
           <div class="comment-box" v-for="c in currentPostComments" :key="c.id">
             <div class="comment-header">
               <div><strong>{{ c.author }}</strong> <span class="label">{{ formatDate(c.created_at) }}</span></div>
@@ -204,6 +212,10 @@ const app = Vue.createApp({
         <div class="page-meta-row">
           <span class="label">当前运行版本 {{ appVersion }}</span>
           <span class="label">当前页面：{{ currentModeLabel }}</span>
+        </div>
+        <div class="hint-banner">
+          <strong>编辑提示</strong>
+          <span>写作内容仅由管理员保存发布；可使用 Ctrl/Cmd + S 快速保存，离开前会提醒未保存变更。</span>
         </div>
         <div class="editor-shell">
           <div class="editor-toolbar">
@@ -254,7 +266,11 @@ const app = Vue.createApp({
                 <h3>Markdown 预览</h3>
                 <span class="label">预计字数 {{ editorWordCount }}，字符 {{ editorCharacterCount }}{{ lastSavedAtLabel ? ` · ${lastSavedAtLabel}` : '' }}</span>
               </div>
-              <div class="preview editor-preview" v-html="markdownHtml"></div>
+              <div v-if="!form.content.trim()" class="empty-state editor-empty-state">
+                <div class="empty-state-title">预览区暂时为空</div>
+                <div class="empty-state-body">开始输入 Markdown 内容后，这里会实时显示排版效果。</div>
+              </div>
+              <div v-else class="preview editor-preview" v-html="markdownHtml"></div>
             </div>
           </div>
         </div>
@@ -295,7 +311,7 @@ const app = Vue.createApp({
       isSavingPost: false,
       initialFormSnapshot: "",
       lastSavedAt: "",
-      appVersion: "v1.4.0",
+      appVersion: "v1.5.0",
     };
   },
   computed: {
@@ -417,6 +433,8 @@ const app = Vue.createApp({
     },
     setError(msg) { this.showMessage(msg, "error"); },
     setSuccess(msg) { this.showMessage(msg, "success"); },
+    setInfo(msg) { this.showMessage(msg, "info"); },
+    setLoading(msg) { this.showMessage(msg, "loading"); },
     formatDate(value) {
       return new Date(value).toLocaleString();
     },
@@ -493,7 +511,10 @@ const app = Vue.createApp({
     async loadPosts(page = 1, append = false) {
       const parsedPage = Number.parseInt(page, 10);
       const normalizedPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-      if (!append) this.isLoadingPosts = true;
+      if (!append) {
+        this.isLoadingPosts = true;
+        this.setLoading("正在加载笔记列表...");
+      }
       try {
         const params = [`page=${normalizedPage}`, `per_page=${this.postsPagination.per_page}`];
         if (this.searchQuery) params.push(`query=${encodeURIComponent(this.searchQuery)}`);
@@ -528,6 +549,7 @@ const app = Vue.createApp({
       this.isLoadingMore = true;
       try {
         await this.loadPosts(this.currentPage + 1, true);
+        this.setInfo("已追加加载更多内容");
       } finally {
         this.isLoadingMore = false;
       }
@@ -599,6 +621,7 @@ const app = Vue.createApp({
         return;
       }
       this.isSavingPost = true;
+      this.setLoading(this.form.id ? "正在保存修改..." : "正在发布内容...");
       try {
         const payload = {
           title: this.form.title,
@@ -635,6 +658,7 @@ const app = Vue.createApp({
     },
     async openDetail(post) {
       try {
+        this.setLoading("正在加载文章详情...");
         const detail = await this.request({ url: `/posts/${post.id}`, method: "GET" });
         this.activePost = detail;
         this.commentEditorExpanded = false;
@@ -647,6 +671,7 @@ const app = Vue.createApp({
     async loadComments(postId, silent = false) {
       this.commentsError = "";
       this.isLoadingComments = true;
+      if (!silent) this.setLoading("正在同步评论列表...");
       try {
         this.currentPostComments = await this.request({ url: `/posts/${postId}/comments`, method: "GET" });
       } catch (error) {
