@@ -20,6 +20,19 @@ docker compose up -d --build hxz-blog
 本地默认访问地址：
 
 - 页面：`http://127.0.0.1:5001`
+- API：`http://127.0.0.1:5001/api`
+
+## 当前版本状态
+
+当前活跃版本为 `v1.3`，重点是把浏览、阅读、评论与移动端体验打磨稳定。
+
+目前已经落地的本版本能力包括：
+
+- 首页列表使用“加载更多”替代传统分页
+- 搜索、标签、分类、排序可组合筛选
+- 详情页信息层级、长文阅读样式与评论区交互优化
+- 评论支持展开式输入、提交中反馈、失败提示与刷新重试
+- API 对文章不存在、评论不存在、未登录、登录失效、评论限流等场景提供统一错误文案
 
 ## 开发入口
 
@@ -33,6 +46,21 @@ docker compose up -d --build hxz-blog
 ```bash
 python backend/init_db.py
 ```
+
+## 验证方式
+
+优先使用项目既有的 Docker 路径进行验证：
+
+```bash
+docker compose build hxz-blog
+docker compose up -d hxz-blog
+docker compose ps hxz-blog
+```
+
+说明：
+
+- 当前仓库以根目录统一编排为准，不再维护子项目独立部署链路
+- 如果本机未安装可用的 `python` / `node` 运行时，可直接使用 Docker 完成构建与启动验证
 
 ## 文档分层
 

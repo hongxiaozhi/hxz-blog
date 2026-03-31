@@ -38,7 +38,7 @@ const app = Vue.createApp({
             </div>
           </div>
         </div>
-        <div v-if="message" class="notice header-notice">{{ message }}</div>
+        <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">{{ message }}</div>
       </div>
 
       <div class="card" v-if="mode === 'list'">
@@ -86,9 +86,17 @@ const app = Vue.createApp({
           </div>
         </div>
 
-        <div v-if="isLoadingPosts" class="empty-state">正在加载笔记...</div>
+        <div class="list-summary" v-if="!isLoadingPosts || posts.length > 0">
+          <span class="label">{{ listStatusText }}</span>
+        </div>
+
+        <div v-if="isLoadingPosts" class="empty-state">
+          <div class="empty-state-title">正在加载笔记...</div>
+          <div class="empty-state-body">列表、筛选和排序结果正在准备中。</div>
+        </div>
         <div v-else-if="posts.length === 0" class="empty-state">
-          <div>没有匹配结果</div>
+          <div class="empty-state-title">没有匹配结果</div>
+          <div class="empty-state-body">可以清除筛选条件后重新查看全部内容。</div>
           <button class="btn-secondary btn-small" style="margin-top:10px" @click="clearSearch">重置筛选条件</button>
         </div>
 
@@ -101,6 +109,7 @@ const app = Vue.createApp({
               </h3>
               <div class="label post-meta">{{ new Date(post.created_at).toLocaleString() }} · 阅读 {{ post.view_count }}</div>
             </div>
+            <p class="post-excerpt">{{ getPostExcerpt(post.content) }}</p>
             <div class="post-tags-row">
               <span class="meta-chip">分类：{{ post.category || '未分类' }}</span>
               <span class="meta-chip">标签：{{ post.tags.join(', ') || '无' }}</span>
@@ -115,25 +124,52 @@ const app = Vue.createApp({
 
         <div class="load-more-row" v-if="!isLoadingPosts && posts.length > 0">
           <button v-if="hasMore" class="btn-secondary" @click="loadMore" :disabled="isLoadingMore">{{ isLoadingMore ? '加载中...' : '加载更多' }}</button>
-          <span class="label">共 {{ postsPagination.total }} 篇，已显示 {{ posts.length }} 篇</span>
+          <span class="label">{{ hasMore ? `共 ${postsPagination.total} 篇，已显示 ${posts.length} 篇` : `已显示全部 ${posts.length} 篇结果` }}</span>
         </div>
       </div>
 
       <div class="card" v-if="mode === 'detail' && activePost">
-        <div class="action-row">
-          <button class="btn-secondary" @click="backToList">返回</button>
-          <button v-if="isLoggedIn" @click="edit(activePost)">编辑</button>
+        <div class="detail-topbar">
+          <div class="action-row">
+            <button class="btn-secondary" @click="backToList">返回列表</button>
+            <button v-if="isLoggedIn" @click="edit(activePost)">编辑本文</button>
+          </div>
+          <span class="label">发布时间 {{ formatDate(activePost.created_at) }}</span>
         </div>
-        <h2>{{ activePost.title }}</h2>
-        <div class="label">{{ new Date(activePost.created_at).toLocaleString() }} · 阅读 {{ activePost.view_count }}</div>
-        <div class="preview" v-html="activePost.html"></div>
+        <div class="detail-hero">
+          <h2>{{ activePost.title }}</h2>
+          <p class="detail-subtitle">适合沉浸阅读的完整正文与评论讨论。</p>
+          <div class="detail-meta">
+            <span class="meta-chip">阅读 {{ activePost.view_count }}</span>
+            <span class="meta-chip">分类：{{ activePost.category || '未分类' }}</span>
+            <span class="meta-chip">标签：{{ activePost.tags.join(', ') || '无' }}</span>
+            <span class="meta-chip">更新于 {{ formatDate(activePost.updated_at || activePost.created_at) }}</span>
+          </div>
+        </div>
+        <div class="preview detail-preview" v-html="activePost.html"></div>
 
         <div class="comment-section">
-          <h3>评论</h3>
-          <div class="comment-box" v-if="currentPostComments.length === 0">暂无评论，快来第一个发表吧。</div>
+          <div class="section-heading">
+            <div>
+              <h3>评论</h3>
+              <p class="label">{{ commentsSummaryText }}</p>
+            </div>
+            <button class="btn-secondary btn-small" @click="loadComments(activePost.id, true)" :disabled="isLoadingComments">
+              {{ isLoadingComments ? '刷新中...' : '刷新评论' }}
+            </button>
+          </div>
+
+          <div class="empty-state" v-if="commentsError">
+            <div class="empty-state-title">评论加载失败</div>
+            <div class="empty-state-body">{{ commentsError }}</div>
+            <button class="btn-secondary btn-small" style="margin-top:10px" @click="loadComments(activePost.id, true)">重试</button>
+          </div>
+
+          <div class="comment-box comment-status" v-else-if="isLoadingComments">评论加载中...</div>
+          <div class="comment-box comment-status" v-else-if="currentPostComments.length === 0">暂无评论，快来第一个发表吧。</div>
           <div class="comment-box" v-for="c in currentPostComments" :key="c.id">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div><strong>{{ c.author }}</strong> <span class="label">{{ new Date(c.created_at).toLocaleString() }}</span></div>
+            <div class="comment-header">
+              <div><strong>{{ c.author }}</strong> <span class="label">{{ formatDate(c.created_at) }}</span></div>
               <button v-if="isLoggedIn" class="btn-danger btn-small" @click="deleteComment(c)">删除</button>
             </div>
             <div>{{ c.content }}</div>
@@ -141,9 +177,10 @@ const app = Vue.createApp({
           <div class="comment-editor">
             <div v-if="!commentEditorExpanded" class="comment-editor-collapsed" @click="commentEditorExpanded = true">写下你的想法...</div>
             <template v-else>
+              <div class="label comment-form-hint">评论支持匿名发布，提交后会立即刷新列表。</div>
               <input v-model="newComment.author" placeholder="昵称(可不填)" />
               <textarea v-model="newComment.content" rows="3" placeholder="写评论..."></textarea>
-              <div class="action-row" style="margin-top:8px">
+              <div class="action-row comment-actions" style="margin-top:8px">
                 <button @click="submitComment" :disabled="isSubmittingComment">{{ isSubmittingComment ? '提交中...' : '发表评论' }}</button>
                 <button class="btn-secondary btn-small" @click="commentEditorExpanded = false">取消</button>
               </div>
@@ -178,6 +215,7 @@ const app = Vue.createApp({
       form: { id: null, title: "", content: "", tags: "", category: "" },
       mode: "list",
       message: "",
+      messageType: "error",
       searchQuery: "",
       searchTag: "",
       searchCategory: "",
@@ -192,6 +230,8 @@ const app = Vue.createApp({
       isLoadingMore: false,
       commentEditorExpanded: false,
       isSubmittingComment: false,
+      isLoadingComments: false,
+      commentsError: "",
       currentPostComments: [],
       newComment: { author: "", content: "" },
       showUserPanel: false,
@@ -209,6 +249,18 @@ const app = Vue.createApp({
     },
     userInitial() {
       return this.isLoggedIn ? (this.username || '?')[0].toUpperCase() : '?';
+    },
+    listStatusText() {
+      if (this.isLoadingPosts) return "列表加载中，请稍候。";
+      if (this.posts.length === 0) return "当前没有可展示的结果。";
+      if (this.hasMore) return `当前显示 ${this.posts.length} / ${this.postsPagination.total} 篇，可继续加载更多。`;
+      return `已完整显示 ${this.posts.length} 篇结果。`;
+    },
+    commentsSummaryText() {
+      if (this.commentsError) return "评论暂时不可用，可稍后重试。";
+      if (this.isLoadingComments) return "正在同步最新评论。";
+      if (this.currentPostComments.length === 0) return "还没有评论。";
+      return `共 ${this.currentPostComments.length} 条评论，按时间倒序显示。`;
     },
   },
   watch: {
@@ -248,7 +300,23 @@ const app = Vue.createApp({
       await this.login();
       if (this.isLoggedIn) this.closeUserPanel();
     },
-    setError(msg) { this.message = msg; setTimeout(() => (this.message = ""), 3200); },
+    showMessage(msg, type = "error") {
+      this.message = msg;
+      this.messageType = type;
+      setTimeout(() => {
+        if (this.message === msg) this.message = "";
+      }, 3200);
+    },
+    setError(msg) { this.showMessage(msg, "error"); },
+    setSuccess(msg) { this.showMessage(msg, "success"); },
+    formatDate(value) {
+      return new Date(value).toLocaleString();
+    },
+    getPostExcerpt(content) {
+      const normalized = (content || "").replace(/[#>*`_\-\n]/g, " ").replace(/\s+/g, " ").trim();
+      if (!normalized) return "这篇笔记还没有摘要内容。";
+      return normalized.length > 96 ? `${normalized.slice(0, 96)}...` : normalized;
+    },
     setTheme(theme) {
       const normalizedTheme = theme === "dark" ? "dark" : "light";
       this.theme = normalizedTheme;
@@ -265,11 +333,14 @@ const app = Vue.createApp({
       } catch (error) {
         const status = error.response?.status;
         const msg = error.response?.data?.msg || "";
-        const expired = status === 401 && /expired/i.test(msg);
+        const expired = status === 401 && /过期|expired/i.test(msg);
 
         if (expired) {
           this.logout();
           this.setError("登录已过期，请重新登录");
+        } else if (status === 401 && /无效|失效/i.test(msg)) {
+          this.logout();
+          this.setError(msg);
         }
 
         throw error;
@@ -284,6 +355,7 @@ const app = Vue.createApp({
         localStorage.setItem("hx_user", this.username);
         this.mode = "list";
         this.loadPosts();
+        this.setSuccess("登录成功");
       } catch (error) {
         this.setError(error.response?.data?.msg || "登录失败");
       }
@@ -322,7 +394,9 @@ const app = Vue.createApp({
           pages: response.pages,
         };
       } catch (error) {
-        this.setError("加载笔记失败");
+        this.posts = append ? this.posts : [];
+        this.hasMore = false;
+        this.setError(error.response?.data?.msg || "加载笔记失败");
       } finally {
         if (!append) this.isLoadingPosts = false;
       }
@@ -391,10 +465,10 @@ const app = Vue.createApp({
         };
         if (this.form.id) {
           await this.request({ url: `/posts/${this.form.id}`, method: "PUT", data: payload });
-          this.setError("更新成功");
+          this.setSuccess("更新成功");
         } else {
           await this.request({ url: "/posts", method: "POST", data: payload });
-          this.setError("发布成功");
+          this.setSuccess("发布成功");
         }
         this.mode = "list";
         this.loadPosts();
@@ -406,10 +480,10 @@ const app = Vue.createApp({
       if (!confirm("确认删除该笔记吗？")) return;
       try {
         await this.request({ url: `/posts/${post.id}`, method: "DELETE" });
-        this.setError("删除成功");
+        this.setSuccess("删除成功");
         this.loadPosts();
       } catch (error) {
-        this.setError("删除失败");
+        this.setError(error.response?.data?.msg || "删除失败");
       }
     },
     async openDetail(post) {
@@ -420,14 +494,19 @@ const app = Vue.createApp({
         this.mode = "detail";
         await this.loadComments(post.id);
       } catch (error) {
-        this.setError("加载详情失败");
+        this.setError(error.response?.data?.msg || "加载详情失败");
       }
     },
-    async loadComments(postId) {
+    async loadComments(postId, silent = false) {
+      this.commentsError = "";
+      this.isLoadingComments = true;
       try {
         this.currentPostComments = await this.request({ url: `/posts/${postId}/comments`, method: "GET" });
       } catch (error) {
         this.currentPostComments = [];
+        this.commentsError = error.response?.data?.msg || "评论暂时无法加载，请稍后重试";
+      } finally {
+        this.isLoadingComments = false;
       }
     },
     async deleteComment(comment) {
@@ -436,6 +515,7 @@ const app = Vue.createApp({
       try {
         await this.request({ url: `/posts/${this.activePost.id}/comments/${comment.id}`, method: "DELETE" });
         this.currentPostComments = this.currentPostComments.filter(c => c.id !== comment.id);
+        this.setSuccess("评论已删除");
       } catch (error) {
         this.setError(error.response?.data?.msg || "删除评论失败");
       }
@@ -451,8 +531,8 @@ const app = Vue.createApp({
         await this.request({ url: `/posts/${this.activePost.id}/comments`, method: "POST", data: this.newComment });
         this.newComment = { author: "", content: "" };
         this.commentEditorExpanded = false;
-        await this.loadComments(this.activePost.id);
-        this.setError("评论成功");
+        await this.loadComments(this.activePost.id, true);
+        this.setSuccess("评论成功");
       } catch (error) {
         this.setError(error.response?.data?.msg || "发表评论失败");
       } finally {
