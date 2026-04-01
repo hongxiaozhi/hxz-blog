@@ -94,3 +94,8 @@ docker compose ps hxz-blog
 根目录统一入口见：
 
 [`../docker-compose.yml`](../docker-compose.yml)
+
+## API Quick Check
+
+- `GET /api` returns service status and endpoint index.
+- `GET /api/posts` returns posts list data.

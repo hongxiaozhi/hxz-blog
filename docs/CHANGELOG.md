@@ -82,3 +82,6 @@
 ### Fixed
 - 明文密码暴露风险
 - 评论缺少管理入口的问题
+
+### Fixed (2026-04-01)
+- Added `GET /api` endpoint to avoid 404 on API entry URL and improve local smoke-check clarity.

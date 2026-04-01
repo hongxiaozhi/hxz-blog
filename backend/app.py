@@ -131,6 +131,22 @@ def parse_positive_int(raw_value, default_value, minimum=1, maximum=None):
         return maximum
     return value
 
+
+@app.route("/api", methods=["GET"])
+def api_root():
+    return jsonify(
+        {
+            "service": "hxz-blog",
+            "version": "v1.5.0",
+            "status": "ok",
+            "endpoints": {
+                "login": "/api/auth/login",
+                "posts": "/api/posts",
+            },
+        }
+    )
+
+
 @app.route("/api/posts", methods=["GET"])
 def list_posts():
     keyword = request.args.get("query", "").strip()
