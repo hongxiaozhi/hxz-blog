@@ -1,6 +1,5 @@
-from app import db, app
+from app import init_db
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        print("SQLite 鏁版嵁搴撳凡鍒涘缓: backend/blog.db")
+    init_db()
+    print("SQLite 数据库已初始化: backend/blog.db")

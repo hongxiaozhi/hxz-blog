@@ -59,3 +59,8 @@
 - PostgreSQL 迁移
 - 重型后台管理系统
 - 复杂内容审核流程
+
+## Progress Note (2026-04-01)
+
+- `v1.5` moved to completed state.
+- `v1.6` moved to in-progress state with first batch implementation started.

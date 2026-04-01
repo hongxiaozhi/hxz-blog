@@ -99,3 +99,9 @@ docker compose ps hxz-blog
 
 - `GET /api` returns service status and endpoint index.
 - `GET /api/posts` returns posts list data.
+
+## Version Update (2026-04-01)
+
+- Active iteration has moved to `v1.6`.
+- Current focus: article status management (`draft` / `published` / `archived`).
+- Release checklist: `docs/releases/v1.6.md`.

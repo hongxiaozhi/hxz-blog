@@ -11,6 +11,7 @@ class Post(db.Model):
     tags = db.Column(db.String(255), nullable=True)
     view_count = db.Column(db.Integer, default=0)
     is_pinned = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(16), nullable=False, default="published")
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
@@ -23,6 +24,7 @@ class Post(db.Model):
             "tags": [tag.strip() for tag in self.tags.split(",") if tag.strip()] if self.tags else [],
             "view_count": self.view_count,
             "is_pinned": self.is_pinned,
+            "status": self.status,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

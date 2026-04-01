@@ -71,3 +71,14 @@
 - 文章状态系统
 - 图片上传
 - 多用户与复杂后台能力
+
+## Update Note (2026-04-01)
+
+- `v1.5` has been wrapped up as completed iteration.
+- Active version is now `v1.6`, focused on article status management.
+- New release tracking doc: `docs/releases/v1.6.md`.
+
+## v1.6 Iteration Note (2026-04-01)
+
+- Implemented status-aware empty-state copy for post list page.
+- Remaining v1.6 gap: automated status visibility tests.

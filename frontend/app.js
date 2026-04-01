@@ -101,6 +101,15 @@ const app = Vue.createApp({
                 <option value="oldest">最早发布</option>
               </select>
             </div>
+            <div class="field-wrap" v-if="isLoggedIn">
+              <label class="field-label">状态</label>
+              <select v-model="searchStatus">
+                <option value="all">全部状态</option>
+                <option value="published">已发布</option>
+                <option value="draft">草稿</option>
+                <option value="archived">归档</option>
+              </select>
+            </div>
           </div>
           <div class="action-row">
             <button @click="applySearch">应用筛选</button>
@@ -117,7 +126,7 @@ const app = Vue.createApp({
         </div>
         <div v-else-if="posts.length === 0" class="empty-state">
           <div class="empty-state-title">没有匹配结果</div>
-          <div class="empty-state-body">可以清除筛选条件后重新查看全部内容。</div>
+          <div class="empty-state-body">{{ emptyStateHintText }}</div>
           <button class="btn-secondary btn-small" style="margin-top:10px" @click="clearSearch">重置筛选条件</button>
         </div>
 
@@ -134,6 +143,7 @@ const app = Vue.createApp({
             <div class="post-tags-row">
               <span class="meta-chip">分类：{{ post.category || '未分类' }}</span>
               <span class="meta-chip">标签：{{ post.tags.join(', ') || '无' }}</span>
+              <span class="meta-chip">状态：{{ statusLabel(post.status) }}</span>
             </div>
             <div class="action-row">
               <button @click="openDetail(post)">查看</button>
@@ -172,6 +182,7 @@ const app = Vue.createApp({
             <span class="meta-chip">阅读 {{ activePost.view_count }}</span>
             <span class="meta-chip">分类：{{ activePost.category || '未分类' }}</span>
             <span class="meta-chip">标签：{{ activePost.tags.join(', ') || '无' }}</span>
+            <span class="meta-chip">状态：{{ statusLabel(activePost.status) }}</span>
             <span class="meta-chip">更新于 {{ formatDate(activePost.updated_at || activePost.created_at) }}</span>
           </div>
         </div>
@@ -266,6 +277,14 @@ const app = Vue.createApp({
                   <label class="field-label">标签</label>
                   <input v-model="form.tags" placeholder="标签，逗号分隔" />
                 </div>
+                <div class="field-wrap">
+                  <label class="field-label">状态</label>
+                  <select v-model="form.status">
+                    <option value="published">已发布</option>
+                    <option value="draft">草稿</option>
+                    <option value="archived">归档</option>
+                  </select>
+                </div>
               </div>
               <label class="toggle-line">置顶：<input type="checkbox" v-model="form.is_pinned" /></label>
               <textarea class="editor-textarea" v-model="form.content" rows="18" placeholder="Markdown 内容"></textarea>
@@ -315,13 +334,14 @@ const app = Vue.createApp({
       loginForm: { username: "", password: "" },
       posts: [],
       activePost: null,
-      form: { id: null, title: "", content: "", tags: "", category: "" },
+      form: { id: null, title: "", content: "", tags: "", category: "", status: "published" },
       mode: "list",
       message: "",
       messageType: "error",
       searchQuery: "",
       searchTag: "",
       searchCategory: "",
+      searchStatus: "all",
       sortOption: "default",
       filtersExpanded: false,
       isMobileViewport: false,
@@ -360,9 +380,18 @@ const app = Vue.createApp({
     },
     listStatusText() {
       if (this.isLoadingPosts) return "列表加载中，请稍候。";
-      if (this.posts.length === 0) return "当前没有可展示的结果。";
+      if (this.posts.length === 0) {
+        if (!this.isLoggedIn) return "当前没有已发布内容可展示。";
+        if (this.searchStatus && this.searchStatus !== "all") return `当前状态筛选为「${this.statusLabel(this.searchStatus)}」，暂无匹配结果。`;
+        return "当前没有可展示的结果。";
+      }
       if (this.hasMore) return `当前显示 ${this.posts.length} / ${this.postsPagination.total} 篇，可继续加载更多。`;
       return `已完整显示 ${this.posts.length} 篇结果。`;
+    },
+    emptyStateHintText() {
+      if (!this.isLoggedIn) return "当前仅展示已发布内容，可以稍后再来查看更新。";
+      if (this.searchStatus && this.searchStatus !== "all") return `可以切换到其他状态，或清除状态筛选后查看全部内容。`;
+      return "可以清除筛选条件后重新查看全部内容。";
     },
     commentsSummaryText() {
       if (this.commentsError) return "评论暂时不可用，可稍后重试。";
@@ -478,6 +507,10 @@ const app = Vue.createApp({
     formatDate(value) {
       return new Date(value).toLocaleString();
     },
+    statusLabel(status) {
+      const labels = { draft: "草稿", published: "已发布", archived: "归档" };
+      return labels[status] || "未知";
+    },
     getPostExcerpt(content) {
       const normalized = (content || "").replace(/[#>*`_\-\n]/g, " ").replace(/\s+/g, " ").trim();
       if (!normalized) return "这篇笔记还没有摘要内容。";
@@ -491,6 +524,7 @@ const app = Vue.createApp({
         tags: (this.form.tags || "").trim(),
         category: (this.form.category || "").trim(),
         is_pinned: Boolean(this.form.is_pinned),
+        status: (this.form.status || "published").trim(),
       });
     },
     markEditorSaved() {
@@ -560,6 +594,7 @@ const app = Vue.createApp({
         if (this.searchQuery) params.push(`query=${encodeURIComponent(this.searchQuery)}`);
         if (this.searchTag) params.push(`tag=${encodeURIComponent(this.searchTag)}`);
         if (this.searchCategory) params.push(`category=${encodeURIComponent(this.searchCategory)}`);
+        if (this.isLoggedIn && this.searchStatus && this.searchStatus !== "all") params.push(`status=${encodeURIComponent(this.searchStatus)}`);
         params.push(`sort=${encodeURIComponent(this.sortOption || "default")}`);
         const suffix = params.length ? `?${params.join("&")}` : "";
         const response = await this.request({ url: `/posts${suffix}`, method: "GET" });
@@ -618,6 +653,7 @@ const app = Vue.createApp({
       this.searchQuery = "";
       this.searchTag = "";
       this.searchCategory = "";
+      this.searchStatus = "all";
       this.sortOption = "default";
       this.posts = [];
       this.loadPosts(1);
@@ -635,6 +671,7 @@ const app = Vue.createApp({
         tags: post.tags.join(", "),
         category: post.category || "",
         is_pinned: post.is_pinned || false,
+        status: post.status || "published",
       };
       this.lastSavedAt = "";
       this.$nextTick(() => {
@@ -644,7 +681,7 @@ const app = Vue.createApp({
     newPost() {
       this.mode = "edit";
       this.setEditorLayout(this.editorLayout);
-      this.form = { id: null, title: "", content: "", tags: "", category: "", is_pinned: false };
+      this.form = { id: null, title: "", content: "", tags: "", category: "", is_pinned: false, status: "published" };
       this.lastSavedAt = "";
       this.$nextTick(() => {
         this.initialFormSnapshot = this.getFormSnapshot();
@@ -669,6 +706,7 @@ const app = Vue.createApp({
           tags: this.form.tags,
           category: this.form.category,
           is_pinned: this.form.is_pinned || false,
+          status: this.form.status || "published",
         };
         if (this.form.id) {
           await this.request({ url: `/posts/${this.form.id}`, method: "PUT", data: payload });

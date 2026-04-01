@@ -1,10 +1,11 @@
 import os
 import bcrypt
 from datetime import timedelta
+from sqlalchemy import text
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from flask_limiter import Limiter
 from flask_sqlalchemy import SQLAlchemy
 from markdown import markdown
@@ -22,6 +23,7 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 
 CORS(app, supports_credentials=True)
 jwt = JWTManager(app)
+ALLOWED_POST_STATUS = {"draft", "published", "archived"}
 
 
 def json_error(message, status_code):
@@ -132,12 +134,37 @@ def parse_positive_int(raw_value, default_value, minimum=1, maximum=None):
     return value
 
 
+def normalize_post_status(raw_status, default_value="published"):
+    value = (raw_status or default_value).strip().lower()
+    if value not in ALLOWED_POST_STATUS:
+        return None
+    return value
+
+
+def ensure_post_status_column():
+    # Lightweight SQLite schema patch to keep old local DB files compatible.
+    with db.engine.begin() as conn:
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(posts)")).fetchall()]
+        if "status" not in columns:
+            conn.execute(text("ALTER TABLE posts ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'published'"))
+
+
+def init_db():
+    with app.app_context():
+        db.create_all()
+        ensure_post_status_column()
+
+with app.app_context():
+    db.create_all()
+    ensure_post_status_column()
+
+
 @app.route("/api", methods=["GET"])
 def api_root():
     return jsonify(
         {
             "service": "hxz-blog",
-            "version": "v1.5.0",
+            "version": "v1.6.0",
             "status": "ok",
             "endpoints": {
                 "login": "/api/auth/login",
@@ -149,9 +176,12 @@ def api_root():
 
 @app.route("/api/posts", methods=["GET"])
 def list_posts():
+    verify_jwt_in_request(optional=True)
+    current_user = get_jwt_identity()
     keyword = request.args.get("query", "").strip()
     tag = request.args.get("tag", "").strip()
     category = request.args.get("category", "").strip()
+    status_filter = request.args.get("status", "").strip().lower()
     sort = request.args.get("sort", "default").strip().lower()
     page = parse_positive_int(request.args.get("page", 1), 1)
     per_page = parse_positive_int(request.args.get("per_page", 10), 10, maximum=20)
@@ -164,6 +194,13 @@ def list_posts():
         q = q.filter(Post.tags.ilike(f"%{tag}%"))
     if category:
         q = q.filter(Post.category.ilike(f"%{category}%"))
+    if not current_user:
+        q = q.filter(Post.status == "published")
+    elif status_filter and status_filter != "all":
+        normalized_status = normalize_post_status(status_filter, default_value="")
+        if not normalized_status:
+            return json_error("文章状态参数无效", 400)
+        q = q.filter(Post.status == normalized_status)
 
     if sort == "views":
         t = q.order_by(Post.view_count.desc(), Post.created_at.desc())
@@ -187,6 +224,10 @@ def get_post(post_id):
     post = Post.query.get(post_id)
     if not post:
         return json_error("文章不存在或已被删除", 404)
+    if post.status != "published":
+        verify_jwt_in_request(optional=True)
+        if not get_jwt_identity():
+            return json_error("请求的内容不存在", 404)
     post.view_count = post.view_count + 1
     db.session.commit()
     data = post.to_dict()
@@ -242,12 +283,15 @@ def create_post():
     category = data.get("category", "").strip() or None
     tags = ",".join([t.strip() for t in (data.get("tags", "") or "").split(",") if t.strip()])
     is_pinned = bool(data.get("is_pinned", False))
+    status = normalize_post_status(data.get("status"), default_value="published")
     if not title or not content:
         return json_error("标题和内容不能为空", 400)
+    if not status:
+        return json_error("文章状态无效", 400)
     duplicate = Post.query.filter_by(title=title).first()
     if duplicate:
         return json_error("标题已存在，请更换标题", 400)
-    post = Post(title=title, content=content, category=category, tags=tags, is_pinned=is_pinned)
+    post = Post(title=title, content=content, category=category, tags=tags, is_pinned=is_pinned, status=status)
     db.session.add(post)
     db.session.commit()
     return jsonify(post.to_dict()), 201
@@ -264,8 +308,11 @@ def update_post(post_id):
     category = data.get("category", "").strip() or None
     tags = ",".join([t.strip() for t in (data.get("tags", "") or "").split(",") if t.strip()])
     is_pinned = bool(data.get("is_pinned", False))
+    status = normalize_post_status(data.get("status"), default_value=post.status or "published")
     if not title or not content:
         return json_error("标题和内容不能为空", 400)
+    if not status:
+        return json_error("文章状态无效", 400)
     duplicate = Post.query.filter(Post.id != post.id, Post.title == title).first()
     if duplicate:
         return json_error("标题已存在，请更换标题", 400)
@@ -274,6 +321,7 @@ def update_post(post_id):
     post.category = category
     post.tags = tags
     post.is_pinned = is_pinned
+    post.status = status
     db.session.commit()
     return jsonify(post.to_dict())
 
@@ -286,10 +334,6 @@ def delete_post(post_id):
     db.session.delete(post)
     db.session.commit()
     return jsonify({"msg": "删除成功"})
-
-def init_db():
-    with app.app_context():
-        db.create_all()
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
