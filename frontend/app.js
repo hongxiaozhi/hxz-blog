@@ -48,7 +48,7 @@ const app = Vue.createApp({
             </div>
           </div>
         </div>
-        <div v-if="message" class="notice header-notice" :class="`notice-${messageType}`">
+        <div v-if="message" class="notice header-notice" :class="'notice-' + messageType">
           <strong>{{ messageTypeLabel }}</strong>
           <span>{{ message }}</span>
         </div>
@@ -145,7 +145,7 @@ const app = Vue.createApp({
 
         <div class="load-more-row" v-if="!isLoadingPosts && posts.length > 0">
           <button v-if="hasMore" class="btn-secondary" @click="loadMore" :disabled="isLoadingMore">{{ isLoadingMore ? '加载中...' : '加载更多' }}</button>
-          <span class="label">{{ hasMore ? `共 ${postsPagination.total} 篇，已显示 ${posts.length} 篇` : `已显示全部 ${posts.length} 篇结果` }}</span>
+          <span class="label">{{ hasMore ? ('共 ' + postsPagination.total + ' 篇，已显示 ' + posts.length + ' 篇') : ('已显示全部 ' + posts.length + ' 篇结果') }}</span>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ const app = Vue.createApp({
             <div class="editor-pane editor-preview-pane">
               <div class="editor-section-header">
                 <h3>Markdown 预览</h3>
-                <span class="label">预计字数 {{ editorWordCount }}，字符 {{ editorCharacterCount }}{{ lastSavedAtLabel ? ` · ${lastSavedAtLabel}` : '' }}</span>
+                <span class="label">预计字数 {{ editorWordCount }}，字符 {{ editorCharacterCount }}{{ lastSavedAtLabel ? (' · ' + lastSavedAtLabel) : '' }}</span>
               </div>
               <div v-if="!form.content.trim()" class="empty-state editor-empty-state">
                 <div class="empty-state-title">预览区暂时为空</div>
