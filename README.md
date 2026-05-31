@@ -99,6 +99,7 @@ docker compose ps hxz-blog
 
 - `GET /api` returns service status and endpoint index.
 - `GET /api/posts` returns posts list data.
+-
 
 ## Version Update (2026-04-01)
 
